@@ -1,0 +1,84 @@
+(function () {
+    const version = '1.1.6'; // This will be replaced automatically
+    const styleId = 'pw-auth-web-sdk-style';
+    const scriptId = 'pw-auth-web-sdk-script';
+    const cdnUrl = 'https://static.pw.live/web/sdk/auth';
+
+    function isMozillaBrowser() {
+        return (
+        typeof navigator !== "undefined" &&
+        navigator.userAgent.includes("Firefox")
+        );
+    }
+
+    function getQueryParams() {
+        const script = document.currentScript;
+        const queryString = script.src.split('?')[1] || '';
+        const params = new URLSearchParams(queryString);
+        return {
+            versionToRun: params.get('version') || version
+        };
+    }
+
+    const { versionToRun } = getQueryParams();
+
+    function injectOrUpdate(tagName, attributes) {
+        let element = document.getElementById(attributes.id);
+
+        if (element) {
+            if (element.src && !element.src.includes(`/v${versionToRun}/`)) {
+                element.parentNode.removeChild(element);
+                element = null;
+            } else if (element.href && !element.href.includes(`/v${versionToRun}/`)) {
+                element.parentNode.removeChild(element);
+                element = null;
+            }
+        }
+
+        if (!element) {
+            element = document.createElement(tagName);
+            Object.keys(attributes).forEach(key => {
+                element[key] = attributes[key];
+            });
+            element.crossOrigin = 'anonymous';
+            document.head.appendChild(element);
+        }
+    }
+
+    // Inject or update stylesheet
+    injectOrUpdate('link', {
+        id: styleId,
+        rel: 'stylesheet',
+        href: `${cdnUrl}/v${versionToRun}/pw-auth-web-sdk.style.css`
+    });
+
+    if (!isMozillaBrowser()) {
+        // Chrome and other browsers
+        const script = document.createElement("script");
+        script.id = scriptId;
+        script.src = `${cdnUrl}/v${versionToRun}/pw-auth-web-sdk.min.js`;
+        script.type = "module"; // Ensures ES module support
+        script.crossOrigin = "anonymous";
+
+        document.head.appendChild(script);
+    } else {
+    // Firefox-specific logic for dynamic import
+        window.initPWAuthWebSDK = async function (props = {}) {
+        try {
+            const url = new URL(
+            `${cdnUrl}/v${versionToRun}/pw-auth-web-sdk.min.js`,
+            window.location.origin
+            );
+            const module = await import(url); // Firefox handles dynamic imports
+
+            if (module && module.initApp) {
+                return module.initApp({...props});
+            } else {
+                throw new Error("initApp function not found in the module");
+            }
+        } catch (error) {
+            console.error("Error loading or initializing PWAuthWebSDK:", error);
+        }
+    };
+   }
+})();
